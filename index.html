@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ultimate Space Game</title>
+<style>
+body { margin:0; overflow:hidden; background:black; }
+canvas { display:block; }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<script>
+// ===== 初期 =====
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+// ===== プレイヤー =====
+let player = { x:canvas.width/2, y:canvas.height-100, size:20, speed:5, hp:100 };
+
+// ===== データ =====
+let bullets=[], enemies=[], boss=null, finalBoss=null, bossBullets=[];
+let chests=[], inventory=[];
+let score=0, weaponLevel=1, hasSword=false;
+let gameOver=false, gameClear=false;
+
+// ===== タッチ =====
+let moveTouch=null, shootTouch=null;
+
+// ===== スライド =====
+let sliding=false, slideTimer=0, invincible=false;
+
+// ===== 入力 =====
+let keys={};
+addEventListener("keydown", e=>{
+  keys[e.key]=true;
+
+  if(e.key==="x" && !sliding){
+    sliding=true; slideTimer=15; invincible=true;
+  }
+
+  if(e.key==="e" && inventory.length>0){
+    let item=inventory[0];
+    if(item==="herb") player.hp+=20;
+    if(item==="gun") weaponLevel++;
+    inventory.shift();
+  }
+});
+addEventListener("keyup", e=> keys[e.key]=false);
+
+// ===== タッチ =====
+canvas.addEventListener("touchstart", e=>{
+  for(let t of e.touches){
+    if(t.clientX < canvas.width/2){
+      moveTouch=t;
+    }else{
+      shootTouch=t;
+    }
+  }
+});
+
+canvas.addEventListener("touchmove", e=>{
+  for(let t of e.touches){
+    if(moveTouch && t.identifier===moveTouch.identifier) moveTouch=t;
+    if(shootTouch && t.identifier===shootTouch.identifier) shootTouch=t;
+  }
+});
+
+canvas.addEventListener("touchend", ()=>{
+  moveTouch=null; shootTouch=null;
+});
+
+document.body.addEventListener("touchmove", e=>e.preventDefault(), {passive:false});
+
+// ===== 射撃 =====
+function shoot(){
+  if(gameOver||gameClear) return;
+
+  let angle=-Math.PI/2;
+
+  if(hasSword){
+    for(let i=-1;i<=1;i+=0.2){
+      bullets.push({x:player.x,y:player.y,dx:Math.cos(angle+i)*10,dy:Math.sin(angle+i)*10,size:5});
+    }
+    return;
+  }
+
+  if(weaponLevel===1){
+    bullets.push({x:player.x,y:player.y,dx:0,dy:-8,size:5});
+  }else if(weaponLevel===2){
+    bullets.push({x:player.x-5,y:player.y,dx:0,dy:-8,size:5});
+    bullets.push({x:player.x+5,y:player.y,dx:0,dy:-8,size:5});
+  }else{
+    for(let i=-2;i<=2;i++){
+      bullets.push({x:player.x,y:player.y,dx:i,dy:-8,size:5});
+    }
+  }
+}
+
+// ===== 敵 =====
+setInterval(()=>{
+  if(!gameOver){
+    enemies.push({x:Math.random()*canvas.width,y:-20,size:20,speed:2});
+  }
+},1000);
+
+// ===== 宝箱 =====
+setInterval(()=>{
+  chests.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height/2,size:20});
+},8000);
+
+// ===== 更新 =====
+function update(){
+  if(gameOver||gameClear) return;
+
+  // 移動
+  if(keys["a"]) player.x-=player.speed;
+  if(keys["d"]) player.x+=player.speed;
+  if(keys["w"]) player.y-=player.speed;
+  if(keys["s"]) player.y+=player.speed;
+  if(keys["g"]) shoot(); 
+  if(moveTouch) player.x+=(moveTouch.clientX-player.x)*0.15;
+
+  // 自動射撃
+  if(shootTouch) shoot();
+
+  // スライド
+  if(sliding){
+    player.y-=10;
+    slideTimer--;
+    if(slideTimer<=0){sliding=false; invincible=false;}
+  }
+
+  // 弾
+  bullets.forEach(b=>{b.x+=b.dx; b.y+=b.dy;});
+  bullets = bullets.filter(b => b.y > -10);
+
+  // 敵
+  enemies.forEach(e=> e.y+=e.speed);
+
+  // 敵当たり
+  bullets.forEach((b,bi)=>{
+    enemies.forEach((e,ei)=>{
+      if(Math.hypot(b.x-e.x,b.y-e.y)<e.size){
+        enemies.splice(ei,1);
+        bullets.splice(bi,1);
+        score++;
+      }
+    });
+  });
+
+  // 敵がプレイヤーに当たる
+  enemies.forEach((e,ei)=>{
+    if(Math.hypot(e.x-player.x,e.y-player.y)<player.size){
+      enemies.splice(ei,1);
+      if(!invincible) player.hp -= 10;
+    }
+  });
+
+  // 宝箱
+  chests.forEach((c,ci)=>{
+    if(Math.hypot(player.x-c.x,player.y-c.y)<30){
+      chests.splice(ci,1);
+      inventory.push(Math.random()<0.5?"gun":"herb");
+    }
+  });
+
+  // ボス
+  if(score>=20 && !boss) boss={x:canvas.width/2,y:80,size:60,hp:50};
+  if(boss){
+    boss.x+=Math.sin(Date.now()*0.002)*2;
+    if(Math.random()<0.02){
+      bossBullets.push({x:boss.x,y:boss.y,dx:0,dy:4,size:8});
+    }
+  }
+
+  // 剣
+  if(score>=100) hasSword=true;
+
+  // ラスボス
+  if(score>=150 && !finalBoss){
+    finalBoss={x:canvas.width/2,y:60,size:80,hp:200};
+  }
+  if(finalBoss){
+    finalBoss.x += Math.sin(Date.now() * 0.003) * 3;
+    if(Math.random()<0.1){
+      for(let i=0;i<6;i++){
+        let a = Math.PI * 2 / 6 * i;
+        bossBullets.push({
+          x:finalBoss.x,
+          y:finalBoss.y,
+          dx:Math.cos(a)*3,
+          dy:Math.sin(a)*3,
+          size:10
+        });
+      }
+    }
+  }
+
+  // ボス当たり
+  bullets.forEach((b,bi)=>{
+    if(boss && Math.hypot(b.x-boss.x,b.y-boss.y)<boss.size){
+      boss.hp--; bullets.splice(bi,1);
+      if(boss.hp<=0){boss=null; score+=50;}
+    }
+    if(finalBoss && Math.hypot(b.x-finalBoss.x,b.y-finalBoss.y)<finalBoss.size){
+      finalBoss.hp--; bullets.splice(bi,1);
+      if(finalBoss.hp<=0) gameClear=true;
+    }
+  });
+
+  // 被弾
+  bossBullets.forEach((b,bi)=>{
+    b.x+=b.dx; b.y+=b.dy;
+    if(!invincible && Math.hypot(b.x-player.x,b.y-player.y)<player.size){
+      bossBullets.splice(bi,1);
+      player.hp-=10;
+    }
+  });
+
+  if(player.hp<=0) gameOver=true;
+}
+
+// ===== 描画 =====
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.fillStyle="cyan";
+  ctx.fillRect(player.x,player.y,player.size,player.size);
+
+  ctx.fillStyle="yellow";
+  bullets.forEach(b=>ctx.fillRect(b.x,b.y,b.size,b.size));
+
+  ctx.fillStyle="red";
+  enemies.forEach(e=>ctx.fillRect(e.x,e.y,e.size,e.size));
+
+  ctx.fillStyle="gold";
+  chests.forEach(c=>ctx.fillRect(c.x,c.y,c.size,c.size));
+
+  if(boss){
+    ctx.fillStyle="purple";
+    ctx.fillRect(boss.x,boss.y,boss.size,boss.size);
+    ctx.fillStyle="white";
+    ctx.fillText("Boss HP:"+boss.hp, canvas.width/2-50, 20);
+  }
+
+  if(finalBoss){
+    ctx.fillStyle="black";
+    ctx.fillRect(finalBoss.x,finalBoss.y,finalBoss.size,finalBoss.size);
+  }
+
+  ctx.fillStyle="orange";
+  bossBullets.forEach(b=>ctx.fillRect(b.x,b.y,b.size,b.size));
+
+  ctx.fillStyle="white";
+  ctx.fillText("Score:"+score,20,30);
+  ctx.fillText("HP:"+player.hp,20,50);
+
+  inventory.forEach((item,i)=>{
+    ctx.fillText(item,20,80 + i * 20);
+  });
+
+  if(hasSword) ctx.fillText("⚔️ SWORD!",20,140);
+
+  if(gameOver){
+    ctx.fillStyle="red";
+    ctx.font="40px sans-serif";
+    ctx.fillText("GAME OVER",canvas.width/2-120,canvas.height/2);
+  }
+
+  if(gameClear){
+    ctx.fillStyle="yellow";
+    ctx.font="40px sans-serif";
+    ctx.fillText("CLEAR!!",canvas.width/2-100,canvas.height/2);
+  }
+}
+
+// ===== ループ =====
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+
+</body>
+</html>
