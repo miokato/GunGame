@@ -19,6 +19,10 @@ let moveTouch=null, shootTouch=null;
 // ===== スライド =====
 let sliding=false, slideTimer=0, invincible=false;
 
+// ===== クールタイム =====
+let shootCooldown=0;
+const SHOOT_COOLDOWN = 180; // 3秒 (60fps × 3)
+
 // ===== 入力 =====
 let keys={};
 addEventListener("keydown", e=>{
@@ -64,6 +68,7 @@ document.body.addEventListener("touchmove", e=>e.preventDefault(), {passive:fals
 // ===== 射撃 =====
 function shoot(){
   if(gameOver||gameClear) return;
+  if(shootCooldown>0) return;
 
   let angle=-Math.PI/2;
 
@@ -71,6 +76,7 @@ function shoot(){
     for(let i=-1;i<=1;i+=0.2){
       bullets.push({x:player.x,y:player.y,dx:Math.cos(angle+i)*10,dy:Math.sin(angle+i)*10,size:5});
     }
+    shootCooldown=SHOOT_COOLDOWN;
     return;
   }
 
@@ -84,6 +90,7 @@ function shoot(){
       bullets.push({x:player.x,y:player.y,dx:i,dy:-8,size:5});
     }
   }
+  shootCooldown=SHOOT_COOLDOWN;
 }
 
 // ===== 敵 =====
@@ -101,6 +108,9 @@ setInterval(()=>{
 // ===== 更新 =====
 function update(){
   if(gameOver||gameClear) return;
+
+  // クールタイム
+  if(shootCooldown>0) shootCooldown--;
 
   // 移動
   if(keys["a"]) player.x-=player.speed;
