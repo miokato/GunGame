@@ -21,7 +21,7 @@ let sliding=false, slideTimer=0, invincible=false;
 
 // ===== クールタイム =====
 let shootCooldown=0;
-const SHOOT_COOLDOWN = 180; // 3秒 (60fps × 3)
+const SHOOT_COOLDOWN = 30; // 3秒 (60fps × 3)
 
 // ===== 入力 =====
 let keys={};
