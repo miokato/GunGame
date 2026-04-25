@@ -91,7 +91,6 @@ const state = {
   finalBoss: null,
   bossBullets: [],
   chests: [],
-  inventory: [],
 
   score: 0,
   weaponLevel: 1,
@@ -117,13 +116,6 @@ function setupInput(){
       state.sliding = true;
       state.slideTimer = SLIDE_DURATION;
       state.invincible = true;
-    }
-
-    if(e.key === "e" && state.inventory.length > 0){
-      const item = state.inventory[0];
-      if(item === "herb") state.player.hp += HERB_HEAL;
-      if(item === "gun") state.weaponLevel++;
-      state.inventory.shift();
     }
   });
 
@@ -172,6 +164,7 @@ function startSpawners(){
       x: Math.random()*canvas.width,
       y: Math.random()*canvas.height/2,
       size: 20,
+      type: Math.random() < 0.5 ? "herb" : "gun",
     });
   }, CHEST_SPAWN_INTERVAL);
 }
@@ -315,7 +308,11 @@ function handleCollisions(){
   state.chests.forEach((c, ci) => {
     if(Math.hypot(state.player.x-c.x, state.player.y-c.y) < CHEST_PICKUP_RANGE){
       state.chests.splice(ci, 1);
-      state.inventory.push(Math.random() < 0.5 ? "gun" : "herb");
+      if(c.type === "herb"){
+        state.player.hp = Math.min(MAX_HP, state.player.hp + HERB_HEAL);
+      }else{
+        state.weaponLevel++;
+      }
       playSfx("getItem", 0.7);
     }
   });
@@ -396,10 +393,13 @@ function drawEnemies(){
 
 function drawChests(){
   ctx.save();
-  ctx.shadowColor = "gold";
   ctx.shadowBlur = 14;
-  ctx.fillStyle = "#ffd54f";
-  state.chests.forEach(c => ctx.fillRect(c.x, c.y, c.size, c.size));
+  state.chests.forEach(c => {
+    const color = c.type === "herb" ? "#66bb6a" : "#42a5f5";
+    ctx.shadowColor = color;
+    ctx.fillStyle = color;
+    ctx.fillRect(c.x, c.y, c.size, c.size);
+  });
   ctx.restore();
 }
 
@@ -455,7 +455,7 @@ function drawHUD(){
   const panelX = 12;
   const panelY = 12;
   const panelW = 260;
-  const panelH = state.hasSword ? 132 : 108;
+  const panelH = state.hasSword ? 96 : 72;
   drawPanel(panelX, panelY, panelW, panelH);
 
   // スコア
@@ -479,27 +479,11 @@ function drawHUD(){
   ctx.fillText(`${Math.max(0, state.player.hp)} / ${MAX_HP}`, panelX + 246, panelY + 52);
   ctx.textAlign = "left";
 
-  // インベントリ
-  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-  ctx.font = "bold 10px sans-serif";
-  ctx.fillText("ITEMS", panelX + 12, panelY + 80);
-  state.inventory.forEach((item, i) => {
-    const ix = panelX + 56 + i * 56;
-    const iy = panelY + 68;
-    ctx.fillStyle = item === "herb" ? "#66bb6a" : "#42a5f5";
-    ctx.fillRect(ix, iy, 50, 16);
-    ctx.fillStyle = "white";
-    ctx.font = "bold 10px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(item.toUpperCase(), ix + 25, iy + 11);
-  });
-  ctx.textAlign = "left";
-
   // 武器
   if(state.hasSword){
     ctx.fillStyle = "#ffeb3b";
     ctx.font = "bold 13px sans-serif";
-    ctx.fillText("⚔️ SWORD UNLOCKED", panelX + 12, panelY + 116);
+    ctx.fillText("⚔️ SWORD UNLOCKED", panelX + 12, panelY + 80);
   }
 }
 
