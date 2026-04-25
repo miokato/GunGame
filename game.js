@@ -1,9 +1,10 @@
 // ===== 定数 =====
-const SHOOT_COOLDOWN = 30;
+const SHOOT_COOLDOWN = 15;
 const BOSS_SCORE = 20;
 const MAX_WEAPON_LEVEL = 4;
 const FINAL_BOSS_SCORE = 150;
 const BOSS_DEFEAT_SCORE = 50;
+const FINAL_BOSS_DEFEAT_SCORE = 150;
 const ENEMY_SPAWN_INTERVAL = 100;
 const CHEST_SPAWN_INTERVAL = 8000;
 const PLAYER_DAMAGE = 10;
@@ -95,7 +96,6 @@ const state = {
   score: 0,
   weaponLevel: 1,
   gameOver: false,
-  gameClear: false,
 
   sliding: false,
   slideTimer: 0,
@@ -170,7 +170,7 @@ function startSpawners(){
 
 // ===== プレイヤー =====
 function shoot(){
-  if(state.gameOver || state.gameClear) return;
+  if(state.gameOver) return;
   if(state.shootCooldown > 0) return;
 
   playSfx("shot", 0.3);
@@ -327,7 +327,10 @@ function handleCollisions(){
     if(state.finalBoss && Math.hypot(b.x-state.finalBoss.x, b.y-state.finalBoss.y) < state.finalBoss.size){
       state.finalBoss.hp--;
       state.bullets.splice(bi, 1);
-      if(state.finalBoss.hp <= 0) state.gameClear = true;
+      if(state.finalBoss.hp <= 0){
+        state.finalBoss = null;
+        state.score += FINAL_BOSS_DEFEAT_SCORE;
+      }
     }
   });
 
@@ -489,28 +492,18 @@ function drawHUD(){
 }
 
 function drawOverlay(){
-  if(!state.gameOver && !state.gameClear) return;
+  if(!state.gameOver) return;
 
   ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   ctx.save();
   ctx.textAlign = "center";
-
-  if(state.gameOver){
-    ctx.shadowColor = "#f44336";
-    ctx.shadowBlur = 24;
-    ctx.fillStyle = "#f44336";
-    ctx.font = "bold 64px sans-serif";
-    ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
-  }else{
-    ctx.shadowColor = "#ffeb3b";
-    ctx.shadowBlur = 28;
-    ctx.fillStyle = "#ffeb3b";
-    ctx.font = "bold 64px sans-serif";
-    ctx.fillText("CLEAR!!", canvas.width/2, canvas.height/2);
-  }
-
+  ctx.shadowColor = "#f44336";
+  ctx.shadowBlur = 24;
+  ctx.fillStyle = "#f44336";
+  ctx.font = "bold 64px sans-serif";
+  ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
   ctx.shadowBlur = 0;
   ctx.fillStyle = "white";
   ctx.font = "bold 20px sans-serif";
@@ -533,7 +526,7 @@ function draw(){
 
 // ===== ゲームループ =====
 function update(){
-  if(state.gameOver || state.gameClear) return;
+  if(state.gameOver) return;
 
   updatePlayer();
   updateEnemies();
