@@ -18,6 +18,14 @@ const ctx = canvas.getContext("2d");
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
+// ===== ユーティリティ =====
+function isOffScreen(obj, margin = 50){
+  return obj.x < -margin
+      || obj.x > canvas.width + margin
+      || obj.y < -margin
+      || obj.y > canvas.height + margin;
+}
+
 // ===== ゲーム状態 =====
 const state = {
   player: { x: canvas.width/2, y: canvas.height-100, size: 20, speed: 5, hp: 100 },
@@ -171,7 +179,7 @@ function updatePlayer(){
   }
 
   state.bullets.forEach(b => { b.x += b.dx; b.y += b.dy; });
-  state.bullets = state.bullets.filter(b => b.y > -10);
+  state.bullets = state.bullets.filter(b => !isOffScreen(b));
 
   if(state.score >= SWORD_SCORE) state.hasSword = true;
 }
@@ -179,6 +187,7 @@ function updatePlayer(){
 // ===== 敵 =====
 function updateEnemies(){
   state.enemies.forEach(e => e.y += e.speed);
+  state.enemies = state.enemies.filter(e => !isOffScreen(e));
 }
 
 // ===== ボス =====
@@ -218,6 +227,7 @@ function updateBosses(){
   }
 
   state.bossBullets.forEach(b => { b.x += b.dx; b.y += b.dy; });
+  state.bossBullets = state.bossBullets.filter(b => !isOffScreen(b));
 }
 
 // ===== 衝突判定 =====
