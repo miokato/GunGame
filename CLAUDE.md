@@ -11,6 +11,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # ブラウザで直接開く
 open index.html
+
+# 効果音が鳴らない場合はローカルサーバー経由で開く
+# (Web Audio API の fetch が file:// を拒否するブラウザがあるため)
+python3 -m http.server 8000
+# → http://localhost:8000 をブラウザで開く
 ```
 
 テストフレームワーク・ビルドコマンドは存在しない。
@@ -50,3 +55,11 @@ open index.html
 - **X**: スライド（無敵フレームあり）
 - **E**: インベントリのアイテムを使用（`herb`=HP回復、`gun`=武器レベルアップ）
 - **タッチ左半分**: 移動、**タッチ右半分**: 自動射撃
+
+### 音源
+BGMはループ再生してください。
+
+- BGM : resources/sounds/bgm.mp3
+- アイテム取得効果音 : resources/sounds/get_item.mp3
+- プレイヤーの球発射 : resources/sounds/shot.mp3
+- 球被弾 : resources/sounds/shot_damage.mp3

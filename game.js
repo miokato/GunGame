@@ -27,6 +27,60 @@ function isOffScreen(obj, margin = 50){
       || obj.y > canvas.height + margin;
 }
 
+// ===== 音源 =====
+const SOUND = {
+  bgm: "resources/sounds/bgm.mp3",
+  getItem: "resources/sounds/get_item.mp3",
+  shot: "resources/sounds/shot.mp3",
+  shotDamage: "resources/sounds/shot_damage.mp3",
+};
+
+const bgm = new Audio(SOUND.bgm);
+bgm.loop = true;
+bgm.volume = 0.35;
+
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const sfxBuffers = {};
+
+async function preloadSfx(){
+  const names = ["getItem", "shot", "shotDamage"];
+  await Promise.all(names.map(async name => {
+    try {
+      const res = await fetch(SOUND[name]);
+      const arr = await res.arrayBuffer();
+      sfxBuffers[name] = await audioCtx.decodeAudioData(arr);
+    } catch(e){
+      console.warn(`SFXロード失敗 (${name}): ${e.message}. ローカルサーバー経由で開いてください`);
+    }
+  }));
+}
+
+function setupAudio(){
+  preloadSfx();
+
+  const start = () => {
+    if(audioCtx.state === "suspended") audioCtx.resume();
+    bgm.play().catch(() => {});
+    removeEventListener("keydown", start);
+    removeEventListener("pointerdown", start);
+    removeEventListener("touchstart", start);
+  };
+  addEventListener("keydown", start, { once: true });
+  addEventListener("pointerdown", start, { once: true });
+  addEventListener("touchstart", start, { once: true });
+}
+
+function playSfx(name, volume = 0.6){
+  const buffer = sfxBuffers[name];
+  if(!buffer || audioCtx.state !== "running") return;
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  const gain = audioCtx.createGain();
+  gain.gain.value = volume;
+  source.connect(gain).connect(audioCtx.destination);
+  source.start(0);
+}
+
 // ===== ゲーム状態 =====
 const state = {
   player: { x: canvas.width/2, y: canvas.height-100, size: 20, speed: 5, hp: 100 },
@@ -126,6 +180,8 @@ function startSpawners(){
 function shoot(){
   if(state.gameOver || state.gameClear) return;
   if(state.shootCooldown > 0) return;
+
+  playSfx("shot", 0.3);
 
   const angle = -Math.PI/2;
   const { player } = state;
@@ -248,7 +304,10 @@ function handleCollisions(){
   state.enemies.forEach((e, ei) => {
     if(Math.hypot(e.x-state.player.x, e.y-state.player.y) < state.player.size){
       state.enemies.splice(ei, 1);
-      if(!state.invincible) state.player.hp -= PLAYER_DAMAGE;
+      if(!state.invincible){
+        state.player.hp -= PLAYER_DAMAGE;
+        playSfx("shotDamage");
+      }
     }
   });
 
@@ -257,6 +316,7 @@ function handleCollisions(){
     if(Math.hypot(state.player.x-c.x, state.player.y-c.y) < CHEST_PICKUP_RANGE){
       state.chests.splice(ci, 1);
       state.inventory.push(Math.random() < 0.5 ? "gun" : "herb");
+      playSfx("getItem", 0.7);
     }
   });
 
@@ -282,6 +342,7 @@ function handleCollisions(){
     if(!state.invincible && Math.hypot(b.x-state.player.x, b.y-state.player.y) < state.player.size){
       state.bossBullets.splice(bi, 1);
       state.player.hp -= PLAYER_DAMAGE;
+      playSfx("shotDamage");
     }
   });
 
@@ -502,6 +563,7 @@ function loop(){
 }
 
 // ===== 起動 =====
+setupAudio();
 setupInput();
 startSpawners();
 loop();
