@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 
-単一ファイル (`index.html`) のHTML5 Canvasシューティングゲーム。ビルドシステム・依存関係・パッケージマネージャーは一切不使用。ブラウザで直接開くだけで動作する。
+`index.html` + `style.css` + `game.js` で構成されるHTML5 Canvasシューティングゲーム。ビルドシステム・依存関係・パッケージマネージャーは一切不使用。ブラウザで直接開くだけで動作する。
 
 ## 実行方法
 
@@ -17,12 +17,22 @@ open index.html
 
 ## ゲームアーキテクチャ
 
-すべてのロジックは `index.html` 内の単一 `<script>` ブロックに集約されている。構成は以下の通り：
+ロジックは `game.js` 1ファイルにまとまっており、責務ごとに以下のセクション・関数で分割されている：
 
-- **状態変数**: グローバル変数でゲーム状態を管理（`player`, `bullets`, `enemies`, `boss`, `finalBoss`, `bossBullets`, `inventory`, `score` など）
-- **入力**: キーボード (`keydown`/`keyup`) とタッチ (`touchstart`/`touchmove`/`touchend`) の両方に対応
-- **ゲームループ**: `requestAnimationFrame` による `loop()` → `update()` + `draw()` の繰り返し
-- **敵生成**: `setInterval` で定期的に敵・宝箱を生成
+| セクション | 主な関数・要素 | 責務 |
+|------------|---------------|------|
+| 定数 | `SHOOT_COOLDOWN`, `BOSS_SCORE` など | ゲームバランス調整値 |
+| Canvas | `canvas`, `ctx` | 描画ターゲットの初期化 |
+| ゲーム状態 | `state` オブジェクト | プレイヤー、敵、ボス、スコアなどを集約 |
+| 入力 | `setupInput()`, `keys`, `touch` | キーボード・タッチ入力 |
+| スポナー | `startSpawners()` | 敵・宝箱を `setInterval` で生成 |
+| プレイヤー | `shoot()`, `updatePlayer()` | 移動・射撃・スライド・剣解放 |
+| 敵 | `updateEnemies()` | 敵の移動 |
+| ボス | `updateBosses()` | ボス・ラスボスの出現と攻撃 |
+| 衝突判定 | `handleCollisions()` | すべての当たり判定 |
+| 描画 | `draw()` と `drawXxx()` 群 | レイヤー別の描画 |
+| ゲームループ | `update()`, `loop()` | `requestAnimationFrame` ループ |
+| 起動 | ファイル末尾 | `setupInput()` → `startSpawners()` → `loop()` |
 
 ### ゲーム進行フロー
 
