@@ -1,7 +1,7 @@
 // ===== 定数 =====
 const SHOOT_COOLDOWN = 30;
 const BOSS_SCORE = 20;
-const SWORD_SCORE = 100;
+const MAX_WEAPON_LEVEL = 4;
 const FINAL_BOSS_SCORE = 150;
 const BOSS_DEFEAT_SCORE = 50;
 const ENEMY_SPAWN_INTERVAL = 100;
@@ -94,7 +94,6 @@ const state = {
 
   score: 0,
   weaponLevel: 1,
-  hasSword: false,
   gameOver: false,
   gameClear: false,
 
@@ -176,10 +175,11 @@ function shoot(){
 
   playSfx("shot", 0.3);
 
-  const angle = -Math.PI/2;
   const { player } = state;
 
-  if(state.hasSword){
+  if(state.weaponLevel >= MAX_WEAPON_LEVEL){
+    // Lv4: SWORD（11発の散弾）
+    const angle = -Math.PI/2;
     for(let i = -1; i <= 1; i += 0.2){
       state.bullets.push({
         x: player.x, y: player.y,
@@ -188,20 +188,18 @@ function shoot(){
         size: 5,
       });
     }
-    state.shootCooldown = SHOOT_COOLDOWN;
-    return;
-  }
-
-  if(state.weaponLevel === 1){
+  }else if(state.weaponLevel === 1){
     state.bullets.push({ x: player.x, y: player.y, dx: 0, dy: -8, size: 5 });
   }else if(state.weaponLevel === 2){
     state.bullets.push({ x: player.x-5, y: player.y, dx: 0, dy: -8, size: 5 });
     state.bullets.push({ x: player.x+5, y: player.y, dx: 0, dy: -8, size: 5 });
   }else{
+    // Lv3: 5発のV字散弾
     for(let i = -2; i <= 2; i++){
       state.bullets.push({ x: player.x, y: player.y, dx: i, dy: -8, size: 5 });
     }
   }
+
   state.shootCooldown = SHOOT_COOLDOWN;
 }
 
@@ -230,8 +228,6 @@ function updatePlayer(){
 
   state.bullets.forEach(b => { b.x += b.dx; b.y += b.dy; });
   state.bullets = state.bullets.filter(b => !isOffScreen(b));
-
-  if(state.score >= SWORD_SCORE) state.hasSword = true;
 }
 
 // ===== 敵 =====
@@ -299,6 +295,7 @@ function handleCollisions(){
       state.enemies.splice(ei, 1);
       if(!state.invincible){
         state.player.hp -= PLAYER_DAMAGE;
+        state.weaponLevel = 1;
         playSfx("shotDamage");
       }
     }
@@ -311,7 +308,7 @@ function handleCollisions(){
       if(c.type === "herb"){
         state.player.hp = Math.min(MAX_HP, state.player.hp + HERB_HEAL);
       }else{
-        state.weaponLevel++;
+        state.weaponLevel = Math.min(MAX_WEAPON_LEVEL, state.weaponLevel + 1);
       }
       playSfx("getItem", 0.7);
     }
@@ -339,6 +336,7 @@ function handleCollisions(){
     if(!state.invincible && Math.hypot(b.x-state.player.x, b.y-state.player.y) < state.player.size){
       state.bossBullets.splice(bi, 1);
       state.player.hp -= PLAYER_DAMAGE;
+      state.weaponLevel = 1;
       playSfx("shotDamage");
     }
   });
@@ -455,7 +453,7 @@ function drawHUD(){
   const panelX = 12;
   const panelY = 12;
   const panelW = 260;
-  const panelH = state.hasSword ? 96 : 72;
+  const panelH = 96;
   drawPanel(panelX, panelY, panelW, panelH);
 
   // スコア
@@ -479,11 +477,14 @@ function drawHUD(){
   ctx.fillText(`${Math.max(0, state.player.hp)} / ${MAX_HP}`, panelX + 246, panelY + 52);
   ctx.textAlign = "left";
 
-  // 武器
-  if(state.hasSword){
+  // 武器レベル
+  ctx.font = "bold 13px sans-serif";
+  if(state.weaponLevel >= MAX_WEAPON_LEVEL){
     ctx.fillStyle = "#ffeb3b";
-    ctx.font = "bold 13px sans-serif";
-    ctx.fillText("⚔️ SWORD UNLOCKED", panelX + 12, panelY + 80);
+    ctx.fillText("⚔️ SWORD (MAX)", panelX + 12, panelY + 80);
+  }else{
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    ctx.fillText(`WEAPON Lv.${state.weaponLevel} / ${MAX_WEAPON_LEVEL}`, panelX + 12, panelY + 80);
   }
 }
 
