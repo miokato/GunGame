@@ -8,6 +8,7 @@ const ENEMY_SPAWN_INTERVAL = 100;
 const CHEST_SPAWN_INTERVAL = 8000;
 const PLAYER_DAMAGE = 10;
 const HERB_HEAL = 20;
+const MAX_HP = 100;
 const SLIDE_DURATION = 15;
 const SLIDE_SPEED = 10;
 const CHEST_PICKUP_RANGE = 30;
@@ -193,7 +194,7 @@ function updateEnemies(){
 // ===== ボス =====
 function updateBosses(){
   if(state.score >= BOSS_SCORE && !state.boss){
-    state.boss = { x: canvas.width/2, y: 80, size: 60, hp: 50 };
+    state.boss = { x: canvas.width/2, y: 80, size: 60, hp: 50, maxHp: 50 };
   }
 
   if(state.boss){
@@ -207,7 +208,7 @@ function updateBosses(){
   }
 
   if(state.score >= FINAL_BOSS_SCORE && !state.finalBoss){
-    state.finalBoss = { x: canvas.width/2, y: 60, size: 80, hp: 200 };
+    state.finalBoss = { x: canvas.width/2, y: 60, size: 80, hp: 200, maxHp: 200 };
   }
 
   if(state.finalBoss){
@@ -288,67 +289,188 @@ function handleCollisions(){
 }
 
 // ===== 描画 =====
+function drawPanel(x, y, w, h){
+  ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+
+function drawHPBar(x, y, w, h, ratio, fillColor){
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = fillColor;
+  ctx.fillRect(x, y, w * Math.max(0, Math.min(1, ratio)), h);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+}
+
+function hpColor(ratio){
+  if(ratio > 0.5) return "#4caf50";
+  if(ratio > 0.25) return "#ff9800";
+  return "#f44336";
+}
+
 function drawPlayer(){
-  ctx.fillStyle = "cyan";
-  ctx.fillRect(state.player.x, state.player.y, state.player.size, state.player.size);
+  const p = state.player;
+  ctx.save();
+  ctx.shadowColor = state.invincible ? "white" : "cyan";
+  ctx.shadowBlur = state.invincible ? 22 : 12;
+  ctx.fillStyle = state.invincible ? "rgba(255, 255, 255, 0.9)" : "#00e5ff";
+  ctx.fillRect(p.x, p.y, p.size, p.size);
+  ctx.restore();
 }
 
 function drawBullets(){
-  ctx.fillStyle = "yellow";
+  ctx.fillStyle = "#fff176";
   state.bullets.forEach(b => ctx.fillRect(b.x, b.y, b.size, b.size));
 }
 
 function drawEnemies(){
-  ctx.fillStyle = "red";
+  ctx.fillStyle = "#ef5350";
   state.enemies.forEach(e => ctx.fillRect(e.x, e.y, e.size, e.size));
 }
 
 function drawChests(){
-  ctx.fillStyle = "gold";
+  ctx.save();
+  ctx.shadowColor = "gold";
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = "#ffd54f";
   state.chests.forEach(c => ctx.fillRect(c.x, c.y, c.size, c.size));
+  ctx.restore();
 }
 
 function drawBosses(){
   if(state.boss){
-    ctx.fillStyle = "purple";
+    drawBossHPBar({
+      label: "BOSS",
+      hp: state.boss.hp, maxHp: state.boss.maxHp,
+      width: 320, y: 24, fillColor: "#ab47bc",
+    });
+    ctx.save();
+    ctx.shadowColor = "#9c27b0";
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = "#9c27b0";
     ctx.fillRect(state.boss.x, state.boss.y, state.boss.size, state.boss.size);
-    ctx.fillStyle = "white";
-    ctx.fillText("Boss HP:" + state.boss.hp, canvas.width/2 - 50, 20);
+    ctx.restore();
   }
+
   if(state.finalBoss){
-    ctx.fillStyle = "black";
+    drawBossHPBar({
+      label: "FINAL BOSS",
+      hp: state.finalBoss.hp, maxHp: state.finalBoss.maxHp,
+      width: 420, y: state.boss ? 70 : 24, fillColor: "#e53935",
+    });
+    ctx.save();
+    ctx.shadowColor = "#ff1744";
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = "#1a1a1a";
     ctx.fillRect(state.finalBoss.x, state.finalBoss.y, state.finalBoss.size, state.finalBoss.size);
+    ctx.restore();
   }
 }
 
+function drawBossHPBar({ label, hp, maxHp, width, y, fillColor }){
+  const height = 18;
+  const x = canvas.width/2 - width/2;
+
+  ctx.fillStyle = "white";
+  ctx.font = "bold 13px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`${label}  ${hp} / ${maxHp}`, canvas.width/2, y - 4);
+  ctx.textAlign = "left";
+
+  drawHPBar(x, y, width, height, hp / maxHp, fillColor);
+}
+
 function drawBossBullets(){
-  ctx.fillStyle = "orange";
+  ctx.fillStyle = "#ffb74d";
   state.bossBullets.forEach(b => ctx.fillRect(b.x, b.y, b.size, b.size));
 }
 
 function drawHUD(){
+  const panelX = 12;
+  const panelY = 12;
+  const panelW = 260;
+  const panelH = state.hasSword ? 132 : 108;
+  drawPanel(panelX, panelY, panelW, panelH);
+
+  // スコア
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(255, 235, 59, 0.95)";
+  ctx.font = "bold 13px sans-serif";
+  ctx.fillText("SCORE", panelX + 12, panelY + 24);
   ctx.fillStyle = "white";
-  ctx.fillText("Score:" + state.score, 20, 30);
-  ctx.fillText("HP:" + state.player.hp, 20, 50);
+  ctx.font = "bold 20px sans-serif";
+  ctx.fillText(state.score.toString(), panelX + 70, panelY + 26);
 
+  // プレイヤーHPバー
+  const hpRatio = state.player.hp / MAX_HP;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+  ctx.font = "bold 11px sans-serif";
+  ctx.fillText("HP", panelX + 12, panelY + 52);
+  drawHPBar(panelX + 38, panelY + 42, 160, 14, hpRatio, hpColor(hpRatio));
+  ctx.fillStyle = "white";
+  ctx.font = "bold 11px sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(`${Math.max(0, state.player.hp)} / ${MAX_HP}`, panelX + 246, panelY + 52);
+  ctx.textAlign = "left";
+
+  // インベントリ
+  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillText("ITEMS", panelX + 12, panelY + 80);
   state.inventory.forEach((item, i) => {
-    ctx.fillText(item, 20, 80 + i * 20);
+    const ix = panelX + 56 + i * 56;
+    const iy = panelY + 68;
+    ctx.fillStyle = item === "herb" ? "#66bb6a" : "#42a5f5";
+    ctx.fillRect(ix, iy, 50, 16);
+    ctx.fillStyle = "white";
+    ctx.font = "bold 10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(item.toUpperCase(), ix + 25, iy + 11);
   });
+  ctx.textAlign = "left";
 
-  if(state.hasSword) ctx.fillText("⚔️ SWORD!", 20, 140);
+  // 武器
+  if(state.hasSword){
+    ctx.fillStyle = "#ffeb3b";
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText("⚔️ SWORD UNLOCKED", panelX + 12, panelY + 116);
+  }
 }
 
 function drawOverlay(){
+  if(!state.gameOver && !state.gameClear) return;
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.textAlign = "center";
+
   if(state.gameOver){
-    ctx.fillStyle = "red";
-    ctx.font = "40px sans-serif";
-    ctx.fillText("GAME OVER", canvas.width/2 - 120, canvas.height/2);
+    ctx.shadowColor = "#f44336";
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = "#f44336";
+    ctx.font = "bold 64px sans-serif";
+    ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2);
+  }else{
+    ctx.shadowColor = "#ffeb3b";
+    ctx.shadowBlur = 28;
+    ctx.fillStyle = "#ffeb3b";
+    ctx.font = "bold 64px sans-serif";
+    ctx.fillText("CLEAR!!", canvas.width/2, canvas.height/2);
   }
-  if(state.gameClear){
-    ctx.fillStyle = "yellow";
-    ctx.font = "40px sans-serif";
-    ctx.fillText("CLEAR!!", canvas.width/2 - 100, canvas.height/2);
-  }
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "white";
+  ctx.font = "bold 20px sans-serif";
+  ctx.fillText(`SCORE: ${state.score}`, canvas.width/2, canvas.height/2 + 44);
+  ctx.restore();
+  ctx.textAlign = "left";
 }
 
 function draw(){
